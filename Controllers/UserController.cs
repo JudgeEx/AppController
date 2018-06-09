@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore;
 using System.Text;
 using AppController.Utils;
+using System.Net;
 
 namespace AppController.Controllers
 {
@@ -30,8 +31,12 @@ namespace AppController.Controllers
         {
             var username = Request.Form["username"].ToString();
             var password = Request.Form["password"].ToString();
+            var from = Request.Form["refer"].ToString();
+            var sessionKey = Request.Cookies["SessionKey"];
+            var fastResult = authLib.AuthUser(sessionKey);
+            if (fastResult) return Redirect(WebUtility.UrlDecode(from));
             var result = authLib.AuthUser(username, password);
-            if (!result)
+            if (result == default)
             {
                 Response.StatusCode = 401;
                 return new
@@ -40,7 +45,7 @@ namespace AppController.Controllers
                     message = "Incorrect username or password."
                 };
             }
-
+            Response.Cookies.Append("SessionKey", sessionKey);
             return new
             {
                 ret = 0,

@@ -5,6 +5,10 @@
     <UserSecretsId>319db238-c708-42b6-829c-08219200e814</UserSecretsId>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <LangVersion>7.1</LangVersion>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.8" />
     <PackageReference Include="MongoDB.Driver" Version="2.6.1" />

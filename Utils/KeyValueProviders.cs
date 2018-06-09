@@ -1,34 +1,39 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 
 interface IKeyValueProvider<TKey, TValue>
 {
-    void Set(TKey key, TValue value);
+    void Set(TKey key, TValue value, TimeSpan expireTime = default);
     TValue Get(TKey key);
 }
 
 class InMemoryKVProvider<TKey, TValue> : IKeyValueProvider<TKey, TValue>
 {
     Dictionary<TKey, TValue> dic = new Dictionary<TKey, TValue>();
-    SortedList<DateTime, TKey> expire = new SortedList<DateTime, TKey>();
+    SortedDictionary<DateTime, TKey> expire = new SortedDictionary<DateTime, TKey>();
     void Cleanup()
     {
         var now = DateTime.Now;
-        while (expire.Count > 0 && expire.Keys[0] < now)
+        while (expire.Count > 0 && expire.First().Key < now)
         {
-            dic.Remove(expire.Values[0]);
-            expire.RemoveAt(0);
+            dic.Remove(expire.First().Value);
+            expire.Remove(expire.First().Key);
         }
     }
-    public void Set(TKey key, TValue value)
+    public void Set(TKey key, TValue value, TimeSpan expireTime)
     {
         Cleanup();
+        expireTime = expireTime == default ? TimeSpan.FromDays(36500) : expireTime;
+        expire[DateTime.Now + expireTime] = key;
         dic[key] = value;
     }
     public TValue Get(TKey key)
     {
         Cleanup();
-        return dic.ContainsKey(key) ? dic[key] : default(TValue);
+        TValue ret = default;
+        dic.TryGetValue(key, out ret);
+        return ret;
     }
 }
 
@@ -39,7 +44,7 @@ class RedisKVProvider<TKey, TValue> : IKeyValueProvider<TKey, TValue>
         throw new System.NotImplementedException();
     }
 
-    public void Set(TKey key, TValue value)
+    public void Set(TKey key, TValue value, TimeSpan expireTime)
     {
         throw new System.NotImplementedException();
     }
