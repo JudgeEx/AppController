@@ -34,7 +34,7 @@ namespace AppController
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseMvc();
+            app.UseMvc(route => route.MapRoute("", "api/{controller}/{action}"));
         }
     }
 }
