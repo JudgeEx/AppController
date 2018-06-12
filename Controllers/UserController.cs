@@ -12,6 +12,7 @@ using Microsoft.AspNetCore;
 using System.Text;
 using AppController.Utils;
 using System.Net;
+using Microsoft.Extensions.Logging;
 
 namespace AppController.Controllers
 {
@@ -19,10 +20,12 @@ namespace AppController.Controllers
     public class UserController : Controller
     {
         private readonly IConfiguration Configuration;
+        private readonly ILogger Logger;
         private AuthLib authLib;
-        public UserController(IConfiguration configuration)
+        public UserController(IConfiguration configuration, ILogger<UserController> logger)
         {
             Configuration = configuration;
+            Logger = logger;
             authLib = new AuthLib(new MongoClient(Configuration["dbConnectionString"]).GetDatabase(Configuration["dbName"]));
         }
 
@@ -42,6 +45,7 @@ namespace AppController.Controllers
             if (result == default)
             {
                 Response.StatusCode = 401;
+                Logger.LogInformation("User {user} failed to login.", username);
                 return new
                 {
                     ret = 1,
@@ -49,6 +53,7 @@ namespace AppController.Controllers
                 };
             }
             Response.Cookies.Append("SessionKey", Convert.ToBase64String(result));
+            Logger.LogInformation("User {user} logged in.", username);
             return new
             {
                 ret = 0,
@@ -98,12 +103,24 @@ namespace AppController.Controllers
                     message = "User exists."
                 };
             }
-            authLib.AddUser(username, password);
-            return new
+            if (authLib.AddUser(username, password))
             {
-                ret = 0,
-                message = "User created."
-            };
+                Logger.LogInformation("Created user {user}.", username);
+                return new
+                {
+                    ret = 0,
+                    message = "User created."
+                };
+            }
+            else
+            {
+                Logger.LogWarning("Failed to create user {user}.", username);
+                return new
+                {
+                    ret = 5,
+                    message = $"Failed to create user {username}."
+                };
+            }
         }
 
         [HttpPost]
