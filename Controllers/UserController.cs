@@ -1,32 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using AppController.Models;
+using AppController.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using MongoDB.Driver;
-using MongoDB.Bson;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore;
-using System.Text;
-using AppController.Utils;
-using System.Net;
 using Microsoft.Extensions.Logging;
+using System;
 
 namespace AppController.Controllers
 {
-    [Produces("application/json")]
-    public class UserController : Controller
+    [Route("api/[controller]/[action]")]
+    [ApiController]
+    public class UserController : ControllerBase
     {
-        private readonly IConfiguration Configuration;
         private readonly ILogger Logger;
-        private AuthLib authLib;
+        private readonly UserModel userModel;
+
         public UserController(IConfiguration configuration, ILogger<UserController> logger)
         {
-            Configuration = configuration;
             Logger = logger;
-            authLib = new AuthLib(new MongoClient(Configuration["dbConnectionString"]).GetDatabase(Configuration["dbName"]));
+            userModel = new UserModel(Misc.GetDatabase(configuration));
         }
 
         [HttpPost]
@@ -34,14 +25,13 @@ namespace AppController.Controllers
         {
             var username = Request.Form["username"].ToString();
             var password = Request.Form["password"].ToString();
-            var sessionKey = Request.Cookies["SessionKey"];
-            var fastResult = authLib.AuthUser(Convert.FromBase64String(sessionKey));
-            if (!String.IsNullOrWhiteSpace(fastResult)) return new
+            var fastResult = userModel.AuthUser(Convert.FromBase64String(Request.Cookies["SessionKey"].Stringify()));
+            if (fastResult != default) return new
             {
                 ret = 0,
                 message = "User login automatically."
             };
-            var result = authLib.AuthUser(username, password);
+            var result = userModel.AuthUser(username, password);
             if (result == default)
             {
                 Response.StatusCode = 401;
@@ -67,7 +57,7 @@ namespace AppController.Controllers
             var username = Request.Form["username"].ToString();
             var password = Request.Form["password"].ToString();
             var email = Request.Form["email"].ToString();
-            if (!AuthLib.ValidateUserName(username))
+            if (!UserModel.ValidateUserName(username))
             {
                 Response.StatusCode = 403;
                 return new
@@ -76,7 +66,7 @@ namespace AppController.Controllers
                     message = "A username can only contain letters and numbers and the length of it should be in [4,16]."
                 };
             }
-            if (!AuthLib.ValidatePassword(password))
+            if (!UserModel.ValidatePassword(password))
             {
                 Response.StatusCode = 403;
                 return new
@@ -85,7 +75,7 @@ namespace AppController.Controllers
                     message = "The length of password should be in [8,64]."
                 };
             }
-            if (!AuthLib.ValidateMailLiterally(email))
+            if (!UserModel.ValidateMailLiterally(email))
             {
                 Response.StatusCode = 403;
                 return new
@@ -94,7 +84,7 @@ namespace AppController.Controllers
                     message = "Invalid E-Mail address."
                 };
             }
-            if (authLib.Exists(username))
+            if (userModel.Exists(username))
             {
                 Response.StatusCode = 403;
                 return new
@@ -103,7 +93,7 @@ namespace AppController.Controllers
                     message = "User exists."
                 };
             }
-            if (authLib.AddUser(username, password))
+            if (userModel.AddUser(username, password) != default)
             {
                 Logger.LogInformation("Created user {user}.", username);
                 return new
@@ -124,7 +114,7 @@ namespace AppController.Controllers
         }
 
         [HttpPost]
-        public object Logout() => authLib.DeauthUser(Convert.FromBase64String(Request.Cookies["SessionKey"]))
+        public object Logout() => userModel.DeauthUser(Convert.FromBase64String(Request.Cookies["SessionKey"].Stringify()))
             ? new
             {
                 ret = 0,
